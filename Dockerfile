@@ -10,11 +10,17 @@ WORKDIR /app
 # System deps (kept minimal; wheels should satisfy numpy/pillow)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    gcc \
+    make \
+    python3-dev \
+    libyaml-dev \
+    libffi-dev \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python deps
 COPY requirements.txt ./
-RUN pip install --no-cache-dir --upgrade pip \
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir -r requirements.txt
 
 # Copy source
