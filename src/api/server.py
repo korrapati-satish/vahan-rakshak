@@ -384,8 +384,7 @@ async def tool_cargo_scan_qr(body: CargoScanQrRequest) -> Dict[str, Any]:
 async def tool_cargo_create_manifest(body: CargoCreateManifestRequest) -> Dict[str, Any]:
     scanner = CargoScanner()
     # seed scanned_items from provided items list
-    scanner.scanned_items = body.items
-    print(f"Creating manifest with items: {json.dumps(body.items)}")
+    scanner.scanned_items = body.items    
     manifest = scanner.create_manifest(
         manifest_id=body.manifest_id,
         vehicle_id=body.vehicle_id,
@@ -425,8 +424,7 @@ async def tool_reg_verify_permit(body: RegulatorPermitRequest) -> Dict[str, Any]
 @app.post("/v1/tools/regulator/report-violation")
 async def tool_reg_report_violation(body: RegulatorReportViolationRequest) -> Dict[str, Any]:
     api = RegulatorAPI()
-    api.report_violation(body.vehicle_id, body.violation_type, body.timestamp)
-    logger.info(f"Violation recorded: {body.vehicle_id} - {body.violation_type} has been sent to regulator.")
+    api.report_violation(body.vehicle_id, body.violation_type, body.timestamp)    
     return {"status": "recorded"}
 
 
