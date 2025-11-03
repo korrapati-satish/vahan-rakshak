@@ -133,8 +133,9 @@ class WatsonxAgentCaller:
                 endpoint,
                 headers=headers,
                 json=request_body,
-                timeout=30,
+                timeout=600,
             )
+
             response.raise_for_status()
             run_response = response.json()
             
@@ -149,7 +150,7 @@ class WatsonxAgentCaller:
                 agent_response = self._poll_for_agent_response(
                     thread_id, 
                     message_id,
-                    max_wait_seconds=60,
+                    max_wait_seconds=600,
                     poll_interval=2.0
                 )
                 run_response["agent_response"] = agent_response
@@ -237,6 +238,8 @@ class WatsonxAgentCaller:
                 response.raise_for_status()
                 
                 messages = response.json()
+
+                logger.debug(f"Polled messages: {json.dumps(messages, indent=2)}")
                 
                 # Check if we have assistant messages (agent responses)
                 if isinstance(messages, list):

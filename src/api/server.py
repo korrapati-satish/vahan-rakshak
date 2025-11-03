@@ -203,6 +203,37 @@ class SOSFleetNotifyRequest(BaseModel):
     message: str
 
 
+class FireSafetyState(BaseModel):
+    detected: bool
+    confidence_pct: float = Field(..., ge=0, le=100)
+    cabin_temp_c: float
+    battery_pack_temp_c: float
+
+
+class WaterSafetyState(BaseModel):
+    level_cm: float = Field(..., ge=0)
+    flood_risk_level: str = Field(..., pattern="^(none|low|medium|high|critical)$")
+    submersion_detected: bool
+
+
+class AccidentState(BaseModel):
+    collision_detected: bool
+    impact_g_force: float = Field(..., ge=0)
+    collision_severity_level: str = Field(..., pattern="^(none|low|medium|high|critical)$")
+
+
+class VehicleSafetyState(BaseModel):
+    fire: FireSafetyState
+    water: WaterSafetyState
+    accident: AccidentState
+
+
+class IncidentReadingRequest(BaseModel):
+    vehicle_id: str = Field(..., description="Vehicle identifier")
+    timestamp_ms: Optional[int] = None
+    vehicle_safety_state: VehicleSafetyState
+
+
 @app.get("/healthz")
 async def healthz() -> Dict[str, str]:
     return {"status": "ok"}
@@ -276,6 +307,70 @@ async def post_speed_reading(payload: SpeedReadingRequest) -> Dict[str, Any]:
     # Return the full agent response with assessment/decision
     return res
 
+@app.post("/v1/incident")
+async def post_incident_reading(payload: IncidentReadingRequest) -> Dict[str, Any]:
+    caller = _require_caller()
+    
+    # Prepare sensor data with full safety state information
+    sensor_data = {
+        "timestamp_ms": payload.timestamp_ms or int(datetime.now().timestamp() * 1000),
+        "lat": payload.lat,
+        "lon": payload.lon,
+        "alt": payload.alt,
+        "vehicle_safety_state": {
+            "fire": {
+                "detected": payload.vehicle_safety_state.fire.detected,
+                "confidence_pct": payload.vehicle_safety_state.fire.confidence_pct,
+                "cabin_temp_c": payload.vehicle_safety_state.fire.cabin_temp_c,
+                "battery_pack_temp_c": payload.vehicle_safety_state.fire.battery_pack_temp_c
+            },
+            "water": {
+                "level_cm": payload.vehicle_safety_state.water.level_cm,
+                "flood_risk_level": payload.vehicle_safety_state.water.flood_risk_level,
+                "submersion_detected": payload.vehicle_safety_state.water.submersion_detected
+            },
+            "accident": {
+                "collision_detected": payload.vehicle_safety_state.accident.collision_detected,
+                "impact_g_force": payload.vehicle_safety_state.accident.impact_g_force,
+                "collision_severity_level": payload.vehicle_safety_state.accident.collision_severity_level
+            }
+        }
+    }
+
+    # Call guardian agent with detect_incident action
+    res = caller.call_guardian_agent(
+        agent_id=GUARDIAN_AGENT_ID,
+        vehicle_id=payload.vehicle_id,
+        action="detect_incident",
+        sensor_data=sensor_data,
+    )
+
+    # If any critical conditions detected, trigger emergency response
+    if (payload.vehicle_safety_state.fire.detected or
+        payload.vehicle_safety_state.water.submersion_detected or
+        payload.vehicle_safety_state.accident.collision_detected):
+        
+        # Determine incident type for emergency response
+        incident_type = "unknown"
+        if payload.vehicle_safety_state.fire.detected:
+            incident_type = "fire"
+        elif payload.vehicle_safety_state.water.submersion_detected:
+            incident_type = "flood"
+        elif payload.vehicle_safety_state.accident.collision_detected:
+            incident_type = "collision"
+
+        # Trigger emergency response workflow
+        emergency_res = caller.orchestrate_emergency_response(
+            guardian_agent_id=GUARDIAN_AGENT_ID,
+            vehicle_id=payload.vehicle_id,
+            incident_type=incident_type,
+            sensor_data=sensor_data
+        )
+        
+        # Combine both responses
+        res["emergency_response"] = emergency_res
+
+    return res
 
 # ============ Cargo Scanner ============
 

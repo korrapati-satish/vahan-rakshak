@@ -11,8 +11,7 @@ coverage.xml
 
 # Environments
 venv/
-.env
-.env.*
+
 
 # Editors/OS
 .vscode/
@@ -125,7 +124,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
+.env.example
 .venv
 env/
 venv/
