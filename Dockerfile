@@ -26,8 +26,11 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
 # Copy source
 COPY . .
 
-# Expose default Cloud Run port
-EXPOSE 8080
+# Make sure start.sh is executable
+RUN chmod +x start.sh
 
-# Start FastAPI app
-CMD ["uvicorn", "src.api.server:app", "--host", "0.0.0.0", "--port", "8080"]
+# Expose all necessary ports
+EXPOSE 8000 8001 8080
+
+# Start all processes
+CMD ["./start.sh"]
